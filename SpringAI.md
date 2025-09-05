@@ -1,215 +1,69 @@
-## langchain4j
-
-引入依赖：
-
-- 对于 `pom.xml` 中的 Maven：
-
-```xml
-<dependency>
-    <groupId>dev.langchain4j</groupId>
-    <artifactId>langchain4j-open-ai</artifactId>
-    <version>1.1.0</version>
-</dependency>
-```
-
-如果您希望使用高级 [AI 服务 ](https://docs.langchain4j.dev/tutorials/ai-services)API，则还需要添加以下依赖项：
-
-```xml
-<dependency>
-    <groupId>dev.langchain4j</groupId>
-    <artifactId>langchain4j</artifactId>
-    <version>1.1.0</version>
-</dependency>
-```
-
-## 配置类
-
-```java
-
-@Configuration
-public class LLMConfig {
-    @Bean(name = "Qwen")
-    public ChatModel chatModelQwen() {
-        return OpenAiChatModel.builder()
-                .apiKey(System.getenv("DASHSCOPE_API_KEY"))
-                .baseUrl("https://dashscope.aliyuncs.com/compatible-mode/v1")
-                .modelName("qwen-plus")
-                .build();
-    }
-
-    @Bean(name = "DeepSeek")
-    public ChatModel chatModelDeepseek() {
-        return OpenAiChatModel.builder()
-                .apiKey(System.getenv("deepseek"))
-                .baseUrl("https://api.deepseek.com/v1")
-                .modelName("deepseek-chat")
-                .build();
-    }
-
-
-}
-```
-
-## 大模型的调用
-
-```java
-    @Resource(name = "Qwen")
-    private ChatModel chatModelQwen;
-    @Resource(name = "DeepSeek")
-    private ChatModel chatModelDeepSeek;
-
-    // http://localhost:9002/multimodel/qwen
-    @GetMapping(value = "/multimodel/qwen")
-    public String qwenCall(@RequestParam(value = "prompt", defaultValue = "你是谁") String prompt)
-    {
-        String result = chatModelQwen.chat(prompt);
-
-        System.out.println("通过langchain4j调用模型返回结果：\n"+result);
-
-        return result;
-    }
-
-    // http://localhost:9002/multimodel/deepseek
-    @GetMapping(value = "/multimodel/deepseek")
-    public String deepseekCall(@RequestParam(value = "prompt", defaultValue = "你是谁") String prompt)
-    {
-        String result = chatModelDeepSeek.chat(prompt);
-
-        System.out.println("通过langchain4j调用模型返回结果：\n"+result);
-
-        return result;
-    }
-```
-
-## 整和的两种方式
-
-![image-20250710160432208](SpringAI.assets/image-20250710160432208.png)
-
-上面一种是带用原生的langchain4j框架的方法
-
-下面一种是调用langchain4j的集成方法，有RAG,Tool等
-
-## 集成SpringBoot
-
-### 底层集成
-
-**maven添加**
-
-```xml
-<dependency>
-    <groupId>dev.langchain4j</groupId>
-    <artifactId>langchain4j-open-ai-spring-boot-starter</artifactId>
-    <version>1.1.0-beta7</version>
-</dependency>
-```
-
-**application.yml添加**
-
-```
-langchain4j.open-ai.chat-model.api-key=${OPENAI_API_KEY}
-langchain4j.open-ai.chat-model.model-name=gpt-4o
-langchain4j.open-ai.chat-model.log-requests=true
-langchain4j.open-ai.chat-model.log-responses=true
-```
-
-在这种情况下，将自动创建一个 `OpenAiChatModel` 的实例（`ChatModel` 的实现），你可以在需要时自动连接它：
-
-```java
-@RestController
-public class ChatController {
-
-    ChatModel chatModel;
-
-    public ChatController(ChatModel chatModel) {
-        this.chatModel = chatModel;
-    }
-
-    @GetMapping("/chat")
-    public String model(@RequestParam(value = "message", defaultValue = "Hello") String message) {
-        return chatModel.chat(message);
-    }
-}
-```
-
-### 高级集成
-
-```xml
-<dependency>
-    <groupId>dev.langchain4j</groupId>
-    <artifactId>langchain4j-spring-boot-starter</artifactId>
-    <version>1.1.0-beta7</version>
-</dependency>
-```
-
-定义ai接口并使用@AiServer来解释
-
-```java
-@AiService
-interface Assistant {
-
-    @SystemMessage("You are a polite assistant")
-    String chat(String userMessage);
-}
-```
-
-将其视为标准的 Spring Boot `@Service`，但具有 AI 功能。
-
-当应用程序启动时，LangChain4j starter 将扫描 Classpath 并查找所有带有 `@AiService` 注解的接口。对于找到的每个 AI Service，它将使用应用程序上下文中可用的所有 LangChain4j 组件创建此接口的实现，并将其注册为 bean，因此您可以在需要时自动连接它：
-
-```java
-@RestController
-class AssistantController {
-
-    @Autowired
-    Assistant assistant;
-
-    @GetMapping("/chat")
-    public String chat(String message) {
-        return assistant.chat(message);
-    }
-}
-```
-
-![image-20250710161544645](SpringAI.assets/image-20250710161544645.png)
-
-两种整合方式对比
-
-关于**==@AiService==**他不用编写实现类
-
-在整合了springboot框架里面使用
-
-## 模型生成器
-
-```java
-OpenAiChatModel model = OpenAiChatModel.builder()
-        .apiKey(System.getenv("OPENAI_API_KEY"))
-        .modelName("gpt-4o-mini")
-        .temperature(0.3)
-        .timeout(ofSeconds(60))
-        .logRequests(true)
-        .logResponses(true)
-        .build();
-```
-
-可以在 `application.properties` 文件中设置 Quarkus 应用程序中的 LangChain4j 参数，如下所示：
-
-```text
-quarkus.langchain4j.openai.api-key=${OPENAI_API_KEY}
-quarkus.langchain4j.openai.chat-model.temperature=0.5
-quarkus.langchain4j.openai.timeout=60s
-```
-
-
-
-
-
-
-
-
-
-==@Autowired==和==@Resource==
-
-@Autowired是根据类型来寻找注解的，寻找不到在根据名称来找，spring框架的
-
-@Resource是先根据名称来寻找的，然后在根据类型找的，java自带
-
+![](media/image1.jpeg)
+
+> **王久锐** | **软件测试工程师** (应聘岗位)
+>
+> **电话：** 182-4299-3690 | **邮箱：** 3175474150@qq.com
+> **性别：** 男 | **年龄：** 21 | **学历：** 本科（2026届）| **毕业院校：** 辽宁工程技术大学 (计算机相关专业)
+
+---
+
+**个人评价**
+
+*   专注软件质量保障，具备扎实的测试理论、流程掌握（STLC）和全面的测试技能（功能、接口、Web UI自动化、性能）。
+*   核心优势：**拥有后端开发经验（SpringBoot, MyBatis, Redis, MySQL）**，能快速深入理解系统架构与业务逻辑，精准定位缺陷根源（区分前后端问题）。
+*   熟练运用主流测试工具链（Postman, JMeter, Selenium, Git, Maven, 禅道）提升测试效率与质量。
+*   擅长运用等价类、边界值、场景法等设计高质量测试用例；具备清晰的缺陷分析、描述、跟踪与管理能力。
+*   对技术保持热情，持续关注测试领域发展（如自动化框架、AI赋能测试）；乐于总结分享（CSDN文章浏览量过万）。
+*   具备良好的沟通协作能力、细节把控能力和强烈的责任心。
+
+---
+
+**专业技能**
+
+*   **质量保障核心：**
+    *   精通软件测试理论、流程（V模型/敏捷）、方法（黑盒/白盒/灰盒）及测试类型（功能/接口/UI自动化/性能/回归）。
+    *   深入掌握测试用例设计方法：等价类划分、边界值分析、判定表、因果图、场景法、状态迁移法。
+    *   熟悉软件测试生命周期（STLC）与缺陷生命周期管理，熟练使用禅道进行缺陷全流程跟踪。
+*   **测试技术栈：**
+    *   **接口测试：** 精通 Postman（脚本编写、断言、变量、环境管理、Collection/Workspace）；熟练使用 JMeter 进行接口功能测试、参数化（CSV）、关联、断言及基础并发压测。
+    *   **Web UI 自动化：** 熟练使用 Selenium WebDriver (Java/Python) 进行自动化脚本开发，精通元素定位（XPath, CSS Selector, ID, Name等）及常用操作。
+    *   **性能测试基础：** 掌握性能测试核心概念（并发用户、TPS、响应时间、资源利用率），能使用 JMeter 设计执行基础性能测试场景并分析结果。
+    *   **数据库验证：** 熟练掌握 MySQL（增删改查、多表查询、连接、索引、事务），能编写高效 SQL 进行数据一致性校验与后端逻辑验证。
+*   **开发与架构理解 (赋能测试)：**
+    *   熟练掌握 Java/Python，能阅读项目源码辅助测试设计、问题定位与风险评估。
+    *   了解 SpringBoot 核心原理、MyBatis 数据访问及 Redis 缓存机制，熟悉前后端分离架构。
+    *   熟练使用 Git 进行版本控制，Maven 进行项目构建依赖管理。
+    *   了解常见 Web 安全风险（SQL注入等）原理及基础防御措施。
+    *   熟悉 TCP/IP, HTTP/HTTPS 等网络协议，理解 Web 应用通信基础。
+*   **工具与环境：** Windows/Linux, Postman, JMeter, Selenium, Git, Maven, MySQL (Navicat/DBeaver), 禅道, IntelliJ IDEA/PyCharm.
+
+---
+
+**项目经验**
+
+**1.  PLM房屋租赁管理平台 (2024.09 - 2025.01)  |  角色：测试工程师 (兼参与后端开发)**
+*   **项目概述：** 面向房屋租赁行业的全栈平台，含后台管理系统（房源管理、签约、看房）与小程序端（用户预约、浏览）。
+*   **技术栈：** SpringBoot, MyBatis-Plus, MySQL, Redis, MinIO, Nginx
+*   **核心测试职责与贡献：**
+    *   需求转化与用例设计： 参与需求评审，主导设计核心业务流程（房源上架、签约、预约看房）测试用例 200+ 条，综合运用等价类、边界值、场景法保障覆盖度。
+    *   全流程功能测试：执行后端API接口测试（Postman）与前端功能测试（小程序/后台），保障业务流程正确性及数据一致性**，**累计发现并跟踪修复有效缺陷 50+ (禅道)。
+    *   接口质量保障：独立负责 用户管理、房源管理、预约管理等模块的接口测试脚本开发与执行，覆盖功能、参数校验、异常处理及状态码验证。
+    *   数据层验证： 编写 SQL 脚本验证 关键业务操作（如签约状态变更、预约记录生成）的数据库准确性与事务特性。
+    *   质量闭环： 负责核心模块回归测试，确保迭代质量稳定；利用后端技术理解（JWT认证、MinIO存储、全局异常处理）高效定位复杂问题，缩短缺陷修复周期。
+
+**2.  高并发拼团交易平台 (2025.03 - 至今)  |  角色：测试工程师 (兼参与后端开发)**
+*   **项目概述：** 基于DDD的高可用拼团电商平台，核心功能：活动配置、精准用户筛选（标签）、交易结算（含锁单、优惠试算）。
+*   **技术栈：** SpringBoot, MyBatis, MySQL, Redis (Pipeline/Bitmap), Nginx, Docker
+*   **核心测试职责与贡献：**
+    *   复杂业务质量守护： 重点保障拼团核心链路（活动创建->参团->锁单->支付->成团/流团->结算）及 优惠规则计算（满减、折扣、团购价）在各种边界和组合条件下的 准确性。
+    *   接口与性能验证： 使用 Postman/JMeter 对高并发接口（抢购、成团通知）进行功能测试与 基础压力测试**；**探索核心接口自动化脚本，提升回归效率。
+    *   规则引擎验证： 设计多维测试数据**，**系统验证规则树引擎配置 的营销规则执行逻辑、优先级及最终优惠结果正确性。
+    *   标签系统与高并发测试：验证基于 Redis Bitmap 的用户标签筛选精准度；设计并发场景（如秒杀），验证库存扣减、订单生成的准确性及分布式锁/幂等机制的有效性。
+    *   配置变更与灰度测试： 测试基于配置中心的活动开关、灰度发布等动态策略的实时生效情况。
+    *   质量前移：基于对系统架构（规则树、责任链、Redis优化）的理解，在测试设计阶段识别潜在风险点，发现缺陷时能提供深度根因分析建议，助力开发修复。
+
+---
+
+**教育背景**
+
+*   **辽宁工程技术大学** | **计算机科学与技术/软件工程/相关专业 (请填写具体专业)** | **本科** | **2022.09 - 2026.06 (预计毕业)**

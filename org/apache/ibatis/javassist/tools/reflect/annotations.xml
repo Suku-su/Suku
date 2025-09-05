@@ -1,0 +1,5 @@
+<root>
+    <item name='org.apache.ibatis.javassist.tools.reflect.Compiler void main(java.lang.String[])'>
+        <annotation name='org.jetbrains.annotations.NonBlocking'/>
+    </item>
+</root>
